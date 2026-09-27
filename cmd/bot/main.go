@@ -48,6 +48,18 @@ func main() {
 		log.Fatalf("commands register: %v", err)
 	}
 
+	if err := session.UpdateStatusComplex(discordgo.UpdateStatusData{
+		Status: "online",
+		Activities: []*discordgo.Activity{
+			{
+				Name: "Onboarding · /connect",
+				Type: discordgo.ActivityTypeWatching,
+			},
+		},
+	}); err != nil {
+		log.Printf("presence: %v", err)
+	}
+
 	log.Printf("bot online as %s (%s %s)", session.State.User.Username, version, commit)
 
 	stop := make(chan os.Signal, 1)
