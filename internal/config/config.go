@@ -16,6 +16,7 @@ type Config struct {
 	InteressentRoleID    string
 	VorstandRoleID       string
 	ManagementRoleID     string
+	ConnectURL           string
 }
 
 // Load reads configuration from environment variables.
@@ -30,6 +31,11 @@ func Load() (*Config, error) {
 		InteressentRoleID:    strings.TrimSpace(os.Getenv("INTERESSENT_ROLE_ID")),
 		VorstandRoleID:       strings.TrimSpace(os.Getenv("VORSTAND_ROLE_ID")),
 		ManagementRoleID:     strings.TrimSpace(os.Getenv("MANAGEMENT_ROLE_ID")),
+		ConnectURL:           strings.TrimSpace(os.Getenv("CONNECT_URL")),
+	}
+
+	if cfg.ConnectURL == "" {
+		cfg.ConnectURL = "https://connect.neuland.ing/connect"
 	}
 
 	required := map[string]string{

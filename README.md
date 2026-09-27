@@ -19,11 +19,16 @@ Example: `ghcr.io/neuland-ingolstadt/discord-bot:main-42`
 - Visible/writable only by the member plus Vorstand and Management
 - Posts a welcome message with a **Ticket schließen** button
 - Staff-only close flow with ephemeral confirm/cancel; confirm deletes the channel
+- Slash command `/roles` — lists all server roles as `` `Name` — `ID` ``
+- Slash command `/connect` — ephemeral link to Neuland Connect account linking
 
 ## Requirements
 
 - Go 1.21+
 - A Discord application/bot with privileged **Server Members Intent** enabled
+- Bot invite with **applications.commands** scope (needed for slash commands)
+
+**Note:** Leave the Discord Developer Portal **Interactions Endpoint URL** empty so slash commands are handled over the gateway by this bot (not by Neuland Connect).
 
 ## Discord setup
 
@@ -55,6 +60,7 @@ cp .env.example .env
 | `INTERESSENT_ROLE_ID` | Role that triggers ticket creation |
 | `VORSTAND_ROLE_ID` | Staff role (view + close) |
 | `MANAGEMENT_ROLE_ID` | Staff role (view + close) |
+| `CONNECT_URL` | Optional. Link for `/connect` (default `https://connect.neuland.ing/connect`) |
 
 ## Run
 

@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/neuland-ingolstadt/discord-bot/internal/commands"
 	"github.com/neuland-ingolstadt/discord-bot/internal/config"
 	"github.com/neuland-ingolstadt/discord-bot/internal/ticket"
 )
@@ -31,8 +32,10 @@ func main() {
 	session.LogLevel = discordgo.LogWarning
 
 	tickets := ticket.New(cfg)
+	cmds := commands.New(cfg.ConnectURL)
 	session.AddHandler(tickets.HandleMemberUpdate)
 	session.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		cmds.HandleInteraction(s, i)
 		tickets.HandleInteraction(s, i)
 	})
 
@@ -40,6 +43,10 @@ func main() {
 		log.Fatalf("discord open: %v", err)
 	}
 	defer session.Close()
+
+	if err := cmds.Register(session, cfg.GuildID); err != nil {
+		log.Fatalf("commands register: %v", err)
+	}
 
 	log.Printf("bot online as %s (%s %s)", session.State.User.Username, version, commit)
 
