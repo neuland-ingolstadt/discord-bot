@@ -19,7 +19,7 @@ Example: `ghcr.io/neuland-ingolstadt/discord-bot:main-42`
 - Visible/writable only by the member plus Vorstand and Management
 - Posts a welcome message with a **Ticket schließen** button
 - Staff-only close flow with ephemeral confirm/cancel; confirm deletes the channel
-- Slash command `/roles` — lists all server roles as `` `Name` — `ID` ``
+- Slash command `/roles` — lists all server roles as `` `Name` — `ID` `` (Vorstand/Management only)
 - Slash command `/connect` — ephemeral link to Neuland Connect account linking
 
 ## Requirements

@@ -32,7 +32,7 @@ func main() {
 	session.LogLevel = discordgo.LogWarning
 
 	tickets := ticket.New(cfg)
-	cmds := commands.New(cfg.ConnectURL)
+	cmds := commands.New(cfg.ConnectURL, cfg.VorstandRoleID, cfg.ManagementRoleID)
 	session.AddHandler(tickets.HandleMemberUpdate)
 	session.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		cmds.HandleInteraction(s, i)

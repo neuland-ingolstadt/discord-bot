@@ -13,12 +13,18 @@ const (
 
 // Service handles slash command registration and responses.
 type Service struct {
-	connectURL string
+	connectURL       string
+	vorstandRoleID   string
+	managementRoleID string
 }
 
 // New creates a slash-command Service.
-func New(connectURL string) *Service {
-	return &Service{connectURL: connectURL}
+func New(connectURL, vorstandRoleID, managementRoleID string) *Service {
+	return &Service{
+		connectURL:       connectURL,
+		vorstandRoleID:   vorstandRoleID,
+		managementRoleID: managementRoleID,
+	}
 }
 
 func (s *Service) definitions() []*discordgo.ApplicationCommand {
@@ -54,8 +60,20 @@ func (s *Service) HandleInteraction(sess *discordgo.Session, event *discordgo.In
 
 	switch event.ApplicationCommandData().Name {
 	case rolesCommandName:
-		handleRoles(sess, event)
+		s.handleRoles(sess, event)
 	case connectCommandName:
 		s.handleConnect(sess, event)
 	}
+}
+
+func (s *Service) isStaff(event *discordgo.InteractionCreate) bool {
+	if event.Member == nil {
+		return false
+	}
+	for _, id := range event.Member.Roles {
+		if id == s.vorstandRoleID || id == s.managementRoleID {
+			return true
+		}
+	}
+	return false
 }

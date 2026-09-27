@@ -11,7 +11,14 @@ import (
 
 const discordMessageLimit = 2000
 
-func handleRoles(sess *discordgo.Session, event *discordgo.InteractionCreate) {
+func (s *Service) handleRoles(sess *discordgo.Session, event *discordgo.InteractionCreate) {
+	if !s.isStaff(event) {
+		if err := respondEphemeral(sess, event, "Nur Vorstand und Management können diesen Befehl nutzen."); err != nil {
+			log.Printf("commands: roles deny: %v", err)
+		}
+		return
+	}
+
 	guildID := event.GuildID
 	if guildID == "" {
 		_ = respondEphemeral(sess, event, "Dieser Befehl funktioniert nur auf einem Server.")
@@ -45,6 +52,7 @@ func handleRoles(sess *discordgo.Session, event *discordgo.InteractionCreate) {
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: chunks[0],
+			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	})
 	if err != nil {
@@ -55,6 +63,7 @@ func handleRoles(sess *discordgo.Session, event *discordgo.InteractionCreate) {
 	for _, chunk := range chunks[1:] {
 		_, err := sess.FollowupMessageCreate(event.Interaction, true, &discordgo.WebhookParams{
 			Content: chunk,
+			Flags:   discordgo.MessageFlagsEphemeral,
 		})
 		if err != nil {
 			log.Printf("commands: roles followup: %v", err)
