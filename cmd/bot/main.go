@@ -1,0 +1,47 @@
+package main
+
+import (
+	"log"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/bwmarrin/discordgo"
+	"github.com/neuland-ingolstadt/discord-bot/internal/config"
+	"github.com/neuland-ingolstadt/discord-bot/internal/ticket"
+)
+
+var (
+	version = "dev"
+	commit  = "unknown"
+)
+
+func main() {
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("config: %v", err)
+	}
+
+	session, err := discordgo.New("Bot " + cfg.Token)
+	if err != nil {
+		log.Fatalf("discord session: %v", err)
+	}
+
+	session.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMembers
+
+	tickets := ticket.New(cfg)
+	session.AddHandler(tickets.HandleMemberUpdate)
+	session.AddHandler(tickets.HandleInteraction)
+
+	if err := session.Open(); err != nil {
+		log.Fatalf("discord open: %v", err)
+	}
+	defer session.Close()
+
+	log.Printf("bot online as %s (%s %s)", session.State.User.Username, version, commit)
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+	<-stop
+	log.Println("shutting down")
+}
