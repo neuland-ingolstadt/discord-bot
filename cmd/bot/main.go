@@ -28,10 +28,13 @@ func main() {
 	}
 
 	session.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMembers
+	session.LogLevel = discordgo.LogWarning
 
 	tickets := ticket.New(cfg)
 	session.AddHandler(tickets.HandleMemberUpdate)
-	session.AddHandler(tickets.HandleInteraction)
+	session.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		tickets.HandleInteraction(s, i)
+	})
 
 	if err := session.Open(); err != nil {
 		log.Fatalf("discord open: %v", err)

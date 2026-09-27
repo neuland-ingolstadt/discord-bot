@@ -2,6 +2,7 @@ package ticket
 
 import (
 	"log"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -14,71 +15,126 @@ const (
 
 // HandleInteraction routes ticket button interactions.
 func (s *Service) HandleInteraction(sess *discordgo.Session, event *discordgo.InteractionCreate) {
-	if event.Type != discordgo.InteractionMessageComponent {
-		return
-	}
-	if event.GuildID != s.cfg.GuildID {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("ticket: panic handling interaction: %v", r)
+		}
+	}()
+
+	if event == nil || event.Interaction == nil {
+		log.Printf("ticket: interaction event missing interaction payload")
 		return
 	}
 
-	switch event.MessageComponentData().CustomID {
+	if event.Type != discordgo.InteractionMessageComponent {
+		return
+	}
+
+	customID := ""
+	if data, ok := event.Data.(discordgo.MessageComponentInteractionData); ok {
+		customID = data.CustomID
+	} else {
+		log.Printf("ticket: component interaction without component data (type=%v)", event.Type)
+		_ = respondEphemeral(sess, event, "Interaktion konnte nicht gelesen werden.")
+		return
+	}
+
+	if !strings.HasPrefix(customID, "ticket_") {
+		return
+	}
+
+	guildID := event.GuildID
+	if guildID == "" && event.ChannelID != "" {
+		if ch, err := sess.Channel(event.ChannelID); err == nil {
+			guildID = ch.GuildID
+		}
+	}
+	if guildID != "" && guildID != s.cfg.GuildID {
+		log.Printf("ticket: ignore interaction guild=%s want=%s custom_id=%s", guildID, s.cfg.GuildID, customID)
+		return
+	}
+
+	log.Printf("ticket: interaction custom_id=%s user=%s channel=%s", customID, memberUserID(event), event.ChannelID)
+
+	switch customID {
 	case CustomIDClose:
 		s.handleCloseRequest(sess, event)
 	case CustomIDCloseConfirm:
 		s.handleCloseConfirm(sess, event)
 	case CustomIDCloseCancel:
 		s.handleCloseCancel(sess, event)
+	default:
+		log.Printf("ticket: unknown custom_id=%s", customID)
+		_ = respondEphemeral(sess, event, "Unbekannte Ticket-Aktion.")
 	}
 }
 
 func (s *Service) handleCloseRequest(sess *discordgo.Session, event *discordgo.InteractionCreate) {
 	if !s.isStaff(event) {
-		_ = respondEphemeral(sess, event, "Nur Vorstand und Management können Tickets schließen.")
+		if err := respondEphemeral(sess, event, "Nur Vorstand und Management können Tickets schließen."); err != nil {
+			log.Printf("ticket: deny close respond: %v", err)
+		}
 		return
 	}
 
+	// ACK immediately (Discord requires a response within 3s), then attach confirm buttons.
 	err := sess.InteractionRespond(event.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: "Ticket wirklich schließen?",
-			Flags:   discordgo.MessageFlagsEphemeral,
-			Components: []discordgo.MessageComponent{
-				discordgo.ActionsRow{
-					Components: []discordgo.MessageComponent{
-						discordgo.Button{
-							Label:    "Bestätigen",
-							Style:    discordgo.DangerButton,
-							CustomID: CustomIDCloseConfirm,
-						},
-						discordgo.Button{
-							Label:    "Abbrechen",
-							Style:    discordgo.SecondaryButton,
-							CustomID: CustomIDCloseCancel,
-						},
-					},
-				},
-			},
+			Flags: discordgo.MessageFlagsEphemeral,
 		},
 	})
 	if err != nil {
-		log.Printf("ticket: close prompt: %v", err)
+		log.Printf("ticket: close defer: %v", err)
+		return
+	}
+
+	content := "Ticket wirklich schließen?"
+	components := []discordgo.MessageComponent{
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.Button{
+					Label:    "Bestätigen",
+					Style:    discordgo.DangerButton,
+					CustomID: CustomIDCloseConfirm,
+				},
+				discordgo.Button{
+					Label:    "Abbrechen",
+					Style:    discordgo.SecondaryButton,
+					CustomID: CustomIDCloseCancel,
+				},
+			},
+		},
+	}
+	_, err = sess.InteractionResponseEdit(event.Interaction, &discordgo.WebhookEdit{
+		Content:    &content,
+		Components: &components,
+	})
+	if err != nil {
+		log.Printf("ticket: close prompt edit: %v", err)
 	}
 }
 
 func (s *Service) handleCloseConfirm(sess *discordgo.Session, event *discordgo.InteractionCreate) {
 	if !s.isStaff(event) {
-		_ = respondEphemeral(sess, event, "Nur Vorstand und Management können Tickets schließen.")
+		if err := respondEphemeral(sess, event, "Nur Vorstand und Management können Tickets schließen."); err != nil {
+			log.Printf("ticket: deny confirm respond: %v", err)
+		}
 		return
 	}
 
 	channelID := event.ChannelID
-	_ = sess.InteractionRespond(event.Interaction, &discordgo.InteractionResponse{
+	err := sess.InteractionRespond(event.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseUpdateMessage,
 		Data: &discordgo.InteractionResponseData{
 			Content:    "Ticket wird geschlossen…",
 			Components: []discordgo.MessageComponent{},
 		},
 	})
+	if err != nil {
+		log.Printf("ticket: close confirm respond: %v", err)
+		return
+	}
 
 	if _, err := sess.ChannelDelete(channelID); err != nil {
 		log.Printf("ticket: delete channel %s: %v", channelID, err)
@@ -106,9 +162,14 @@ func (s *Service) handleCloseCancel(sess *discordgo.Session, event *discordgo.In
 
 func (s *Service) isStaff(event *discordgo.InteractionCreate) bool {
 	if event.Member == nil {
+		log.Printf("ticket: staff check failed: member is nil (user=%s)", memberUserID(event))
 		return false
 	}
-	return s.cfg.HasStaffRole(event.Member.Roles)
+	ok := s.cfg.HasStaffRole(event.Member.Roles)
+	if !ok {
+		log.Printf("ticket: staff check failed for %s roles=%v", memberUserID(event), event.Member.Roles)
+	}
+	return ok
 }
 
 func memberUserID(event *discordgo.InteractionCreate) string {
