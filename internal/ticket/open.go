@@ -70,28 +70,26 @@ func (s *Service) HandleMemberUpdate(sess *discordgo.Session, event *discordgo.G
 }
 
 func (s *Service) createTicketChannel(sess *discordgo.Session, user *discordgo.User) (*discordgo.Channel, error) {
-	viewSendHistory := int64(discordgo.PermissionViewChannel | discordgo.PermissionSendMessages | discordgo.PermissionReadMessageHistory)
-
-	// Staff (Vorstand/Management) access comes from category overwrites so the
-	// bot does not need to sit above those roles in the hierarchy.
-	return sess.GuildChannelCreateComplex(s.cfg.GuildID, discordgo.GuildChannelCreateData{
+	// Create synced under the category so Vorstand/Management (and @everyone deny)
+	// come from category overwrites — no need for the bot role to sit above staff.
+	channel, err := sess.GuildChannelCreateComplex(s.cfg.GuildID, discordgo.GuildChannelCreateData{
 		Name:     ticketChannelName(user.Username),
 		Type:     discordgo.ChannelTypeGuildText,
 		ParentID: s.cfg.OnboardingCategoryID,
 		Topic:    topicPrefix + user.ID,
-		PermissionOverwrites: []*discordgo.PermissionOverwrite{
-			{
-				ID:   s.cfg.GuildID, // @everyone
-				Type: discordgo.PermissionOverwriteTypeRole,
-				Deny: discordgo.PermissionViewChannel,
-			},
-			{
-				ID:    user.ID,
-				Type:  discordgo.PermissionOverwriteTypeMember,
-				Allow: viewSendHistory,
-			},
-		},
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	viewSendHistory := int64(discordgo.PermissionViewChannel | discordgo.PermissionSendMessages | discordgo.PermissionReadMessageHistory)
+	if err := sess.ChannelPermissionSet(channel.ID, user.ID, discordgo.PermissionOverwriteTypeMember, viewSendHistory, 0); err != nil {
+		if _, delErr := sess.ChannelDelete(channel.ID); delErr != nil {
+			log.Printf("ticket: rollback delete %s after permission failure: %v", channel.ID, delErr)
+		}
+		return nil, fmt.Errorf("member overwrite: %w", err)
+	}
+	return channel, nil
 }
 
 func welcomeMessage(user *discordgo.User) string {

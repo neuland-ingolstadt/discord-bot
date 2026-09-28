@@ -40,7 +40,10 @@ Example: `ghcr.io/neuland-ingolstadt/discord-bot:main-42`
    - View Channels
    - Send Messages
    - Read Message History
-4. On the server, create a category named **Onboarding** (or reuse an existing one). On that category, grant **Vorstand** and **Management** View Channel, Send Messages, and Read Message History (child tickets inherit this).
+4. On the server, create a category named **Onboarding** (or reuse an existing one). On that category:
+   - Deny **@everyone** View Channel
+   - Allow **Vorstand** and **Management** View Channel, Send Messages, and Read Message History  
+   Tickets are created synced to this category, then only the member overwrite is added.
 5. Copy IDs (Developer Mode → right-click → Copy ID):
    - Server → `GUILD_ID`
    - Onboarding category → `ONBOARDING_CATEGORY_ID`
@@ -64,6 +67,8 @@ cp .env.example .env
 | `CONNECT_URL` | Optional. Link for `/connect` (default `https://connect.neuland.ing/connect`) |
 
 ## Run
+
+On boot the bot self-diagnoses guild/category/role/permission setup and exits on hard failures (warnings are logged but non-fatal).
 
 ```bash
 go run ./cmd/bot

@@ -9,6 +9,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/neuland-ingolstadt/discord-bot/internal/commands"
 	"github.com/neuland-ingolstadt/discord-bot/internal/config"
+	"github.com/neuland-ingolstadt/discord-bot/internal/diagnose"
 	"github.com/neuland-ingolstadt/discord-bot/internal/ticket"
 )
 
@@ -43,6 +44,10 @@ func main() {
 		log.Fatalf("discord open: %v", err)
 	}
 	defer session.Close()
+
+	if err := diagnose.Run(session, cfg); err != nil {
+		log.Fatalf("diagnose: %v", err)
+	}
 
 	if err := cmds.Register(session, cfg.GuildID); err != nil {
 		log.Fatalf("commands register: %v", err)
