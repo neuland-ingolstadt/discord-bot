@@ -60,7 +60,7 @@ func (s *Service) HandleMemberUpdate(sess *discordgo.Session, event *discordgo.G
 		return
 	}
 
-	_, err = sess.ChannelMessageSend(channel.ID, welcomeMessage(user.Username))
+	_, err = sess.ChannelMessageSend(channel.ID, welcomeMessage(user))
 	if err != nil {
 		log.Printf("ticket: welcome message in %s: %v", channel.ID, err)
 		return
@@ -102,10 +102,13 @@ func (s *Service) createTicketChannel(sess *discordgo.Session, user *discordgo.U
 	})
 }
 
-func welcomeMessage(username string) string {
+func welcomeMessage(user *discordgo.User) string {
 	return fmt.Sprintf(
-		"Hey %s 👋\nDanke für dein Interesse an unserem Verein! Ein Vereinsmitglied meldet sich in Kürze persönlich bei dir hier im Chat. Dabei geht es darum, dich und deine Interessen kennenzulernen und gemeinsam zu schauen, wie du dich bei uns einbringen kannst.\nUnd natürlich kannst du die Gelegenheit auch nutzen, um alle Fragen loszuwerden, die du an uns hast!",
-		username,
+		"Hey <@%s> 👋\n\n"+
+			"Danke für dein Interesse an unserem Verein!\n\n"+
+			"Ein Vereinsmitglied meldet sich in Kürze persönlich bei dir hier im Chat. Dabei geht es darum, dich und deine Interessen kennenzulernen und gemeinsam zu schauen, wie du dich bei uns einbringen kannst.\n\n"+
+			"Und natürlich kannst du die Gelegenheit auch nutzen, um alle Fragen loszuwerden, die du an uns hast!",
+		user.ID,
 	)
 }
 
