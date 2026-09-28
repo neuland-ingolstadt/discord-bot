@@ -48,15 +48,7 @@ func main() {
 		log.Fatalf("commands register: %v", err)
 	}
 
-	if err := session.UpdateStatusComplex(discordgo.UpdateStatusData{
-		Status: "online",
-		Activities: []*discordgo.Activity{
-			{
-				Name: "Onboarding · /connect",
-				Type: discordgo.ActivityTypeWatching,
-			},
-		},
-	}); err != nil {
+	if err := session.UpdateCustomStatus("Supporting Onboarding"); err != nil {
 		log.Printf("presence: %v", err)
 	}
 
