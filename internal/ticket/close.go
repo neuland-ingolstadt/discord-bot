@@ -91,7 +91,7 @@ func (s *Service) handleComponent(sess *discordgo.Session, event *discordgo.Inte
 		return
 	}
 
-	log.Printf("ticket: interaction custom_id=%s user=%s channel=%s", customID, memberUserID(event), event.ChannelID)
+	log.Printf("ticket: interaction custom_id=%s user=%s channel=%s", customID, memberUserLabel(event), event.ChannelID)
 
 	switch customID {
 	case CustomIDClose:
@@ -208,7 +208,7 @@ func (s *Service) handleCloseConfirm(sess *discordgo.Session, event *discordgo.I
 		})
 		return
 	}
-	log.Printf("ticket: closed/deleted channel %s by %s", channelID, memberUserID(event))
+	log.Printf("ticket: closed/deleted channel %s by %s", channelID, memberUserLabel(event))
 }
 
 func (s *Service) handleCloseCancel(sess *discordgo.Session, event *discordgo.InteractionCreate) {
@@ -246,22 +246,22 @@ func (s *Service) isTicketChannel(sess *discordgo.Session, channelID string) (bo
 
 func (s *Service) isStaff(event *discordgo.InteractionCreate) bool {
 	if event.Member == nil {
-		log.Printf("ticket: staff check failed: member is nil (user=%s)", memberUserID(event))
+		log.Printf("ticket: staff check failed: member is nil (user=%s)", memberUserLabel(event))
 		return false
 	}
 	ok := s.cfg.HasStaffRole(event.Member.Roles)
 	if !ok {
-		log.Printf("ticket: staff check failed for %s roles=%v", memberUserID(event), event.Member.Roles)
+		log.Printf("ticket: staff check failed for %s roles=%v", memberUserLabel(event), event.Member.Roles)
 	}
 	return ok
 }
 
-func memberUserID(event *discordgo.InteractionCreate) string {
+func memberUserLabel(event *discordgo.InteractionCreate) string {
 	if event.Member != nil && event.Member.User != nil {
-		return event.Member.User.ID
+		return userLabel(event.Member.User)
 	}
 	if event.User != nil {
-		return event.User.ID
+		return userLabel(event.User)
 	}
 	return "unknown"
 }

@@ -43,30 +43,30 @@ func (s *Service) HandleMemberUpdate(sess *discordgo.Session, event *discordgo.G
 	}
 
 	user := event.Member.User
-	userID := user.ID
-	exists, err := s.ticketExistsForUser(sess, userID)
+	who := userLabel(user)
+	exists, err := s.ticketExistsForUser(sess, user.ID)
 	if err != nil {
-		log.Printf("ticket: check existing for %s: %v", userID, err)
+		log.Printf("ticket: check existing for %s: %v", who, err)
 		return
 	}
 	if exists {
-		log.Printf("ticket: skip %s, channel already exists", userID)
+		log.Printf("ticket: skip %s, channel already exists", who)
 		return
 	}
 
 	channel, err := s.createTicketChannel(sess, user)
 	if err != nil {
-		log.Printf("ticket: create for %s: %v", userID, err)
+		log.Printf("ticket: create for %s: %v", who, err)
 		return
 	}
 
 	_, err = sess.ChannelMessageSend(channel.ID, welcomeMessage(user))
 	if err != nil {
-		log.Printf("ticket: welcome message in %s: %v", channel.ID, err)
+		log.Printf("ticket: welcome message in %s: %v", channel.Name, err)
 		return
 	}
 
-	log.Printf("ticket: opened %s for user %s", channel.Name, userID)
+	log.Printf("ticket: opened %s for %s", channel.Name, who)
 }
 
 func (s *Service) createTicketChannel(sess *discordgo.Session, user *discordgo.User) (*discordgo.Channel, error) {
@@ -153,4 +153,17 @@ func hasRole(roles []string, roleID string) bool {
 		}
 	}
 	return false
+}
+
+func userLabel(user *discordgo.User) string {
+	if user == nil {
+		return "unknown"
+	}
+	if user.Username != "" {
+		return user.Username
+	}
+	if user.GlobalName != "" {
+		return user.GlobalName
+	}
+	return user.ID
 }
