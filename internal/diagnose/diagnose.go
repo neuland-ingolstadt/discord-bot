@@ -93,18 +93,30 @@ func Run(sess *discordgo.Session, cfg *config.Config) error {
 	}
 
 	perms := memberPermissions(guild, category, botID, me.Roles)
+	guildPerms := guildBasePermissions(guild, me.Roles)
 	for _, need := range []struct {
 		bit  int64
 		name string
+		why  string
 	}{
-		{discordgo.PermissionViewChannel, "View Channel"},
-		{discordgo.PermissionManageChannels, "Manage Channels"},
-		{discordgo.PermissionManageRoles, "Manage Roles"},
-		{discordgo.PermissionSendMessages, "Send Messages"},
-		{discordgo.PermissionReadMessageHistory, "Read Message History"},
+		{discordgo.PermissionViewChannel, "View Channel", "see the category"},
+		{discordgo.PermissionManageChannels, "Manage Channels", "create/delete ticket channels"},
+		{discordgo.PermissionManageRoles, "Manage Roles", "add the ticket member overwrite (staff still inherit from category)"},
+		{discordgo.PermissionSendMessages, "Send Messages", "post the welcome message"},
+		{discordgo.PermissionReadMessageHistory, "Read Message History", "read ticket history"},
 	} {
 		has := perms&need.bit == need.bit || perms&discordgo.PermissionAdministrator == discordgo.PermissionAdministrator
-		check(has, true, fmt.Sprintf("bot permission on category: %s", need.name))
+		if has {
+			check(true, true, fmt.Sprintf("bot permission on category: %s", need.name))
+			continue
+		}
+		hint := need.why
+		if guildPerms&need.bit == need.bit {
+			hint = need.why + "; granted on the bot role but denied by a category overwrite — allow it on Onboarding for the bot"
+		} else {
+			hint = need.why + "; enable it on the bot role (Server Settings → Roles), then confirm the category does not deny it"
+		}
+		check(false, true, fmt.Sprintf("bot permission on category: %s (%s)", need.name, hint))
 	}
 
 	// Staff access for tickets comes from category overwrites (channels sync, then only the member is added).
@@ -165,6 +177,28 @@ func roleOverwrite(ch *discordgo.Channel, roleID string) (allow, deny int64) {
 		}
 	}
 	return 0, 0
+}
+
+func guildBasePermissions(guild *discordgo.Guild, roles []string) int64 {
+	var perms int64
+	for _, role := range guild.Roles {
+		if role.ID == guild.ID {
+			perms |= role.Permissions
+			break
+		}
+	}
+	for _, role := range guild.Roles {
+		for _, roleID := range roles {
+			if role.ID == roleID {
+				perms |= role.Permissions
+				break
+			}
+		}
+	}
+	if perms&discordgo.PermissionAdministrator == discordgo.PermissionAdministrator {
+		return discordgo.PermissionAll
+	}
+	return perms
 }
 
 // memberPermissions mirrors discordgo's calculation (unexported there).
