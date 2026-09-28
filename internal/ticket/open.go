@@ -72,6 +72,8 @@ func (s *Service) HandleMemberUpdate(sess *discordgo.Session, event *discordgo.G
 func (s *Service) createTicketChannel(sess *discordgo.Session, user *discordgo.User) (*discordgo.Channel, error) {
 	viewSendHistory := int64(discordgo.PermissionViewChannel | discordgo.PermissionSendMessages | discordgo.PermissionReadMessageHistory)
 
+	// Staff (Vorstand/Management) access comes from category overwrites so the
+	// bot does not need to sit above those roles in the hierarchy.
 	return sess.GuildChannelCreateComplex(s.cfg.GuildID, discordgo.GuildChannelCreateData{
 		Name:     ticketChannelName(user.Username),
 		Type:     discordgo.ChannelTypeGuildText,
@@ -86,16 +88,6 @@ func (s *Service) createTicketChannel(sess *discordgo.Session, user *discordgo.U
 			{
 				ID:    user.ID,
 				Type:  discordgo.PermissionOverwriteTypeMember,
-				Allow: viewSendHistory,
-			},
-			{
-				ID:    s.cfg.VorstandRoleID,
-				Type:  discordgo.PermissionOverwriteTypeRole,
-				Allow: viewSendHistory,
-			},
-			{
-				ID:    s.cfg.ManagementRoleID,
-				Type:  discordgo.PermissionOverwriteTypeRole,
 				Allow: viewSendHistory,
 			},
 		},

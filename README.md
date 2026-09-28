@@ -16,7 +16,7 @@ Example: `ghcr.io/neuland-ingolstadt/discord-bot:main-42`
 ## Features
 
 - Creates `welcome-<username>` under the **Onboarding** category
-- Visible/writable only by the member plus Vorstand and Management
+- Private to the member (`@everyone` denied); staff see tickets via category permissions
 - Posts a welcome message mentioning the member
 - Staff-only `/ticket close` with ephemeral confirm/cancel; confirm deletes the channel
 - Slash command `/roles` — lists all server roles as `` `Name` — `ID` `` (Vorstand/Management only)
@@ -36,10 +36,11 @@ Example: `ghcr.io/neuland-ingolstadt/discord-bot:main-42`
 2. Under **Bot → Privileged Gateway Intents**, enable **Server Members Intent**.
 3. Invite the bot with permissions:
    - Manage Channels
+   - Manage Roles (needed to set channel permission overwrites)
    - View Channels
    - Send Messages
    - Read Message History
-4. On the server, create a category named **Onboarding** (or reuse an existing one).
+4. On the server, create a category named **Onboarding** (or reuse an existing one). On that category, grant **Vorstand** and **Management** View Channel, Send Messages, and Read Message History (child tickets inherit this).
 5. Copy IDs (Developer Mode → right-click → Copy ID):
    - Server → `GUILD_ID`
    - Onboarding category → `ONBOARDING_CATEGORY_ID`
