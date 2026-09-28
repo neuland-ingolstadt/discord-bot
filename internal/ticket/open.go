@@ -91,8 +91,13 @@ func (s *Service) createTicketChannel(sess *discordgo.Session, user *discordgo.U
 	return channel, nil
 }
 
-// Neuland accent (approx. brand orange).
-const welcomeAccentColor = 0xED6D2D
+// Neuland accent green (from brand).
+const welcomeAccentColor = 0x92DBA5
+
+const (
+	websiteURL = "https://neuland-ingolstadt.de/de"
+	joinURL    = "https://join.neuland-ingolstadt.de/"
+)
 
 func (s *Service) welcomeMessage(sess *discordgo.Session, user *discordgo.User) *discordgo.MessageSend {
 	divider := true
@@ -141,14 +146,16 @@ func (s *Service) welcomeMessage(sess *discordgo.Session, user *discordgo.User) 
 		discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
 				discordgo.Button{
-					Label: "Neuland Connect",
+					Label: "Website",
 					Style: discordgo.LinkButton,
-					URL:   s.cfg.ConnectURL,
+					URL:   websiteURL,
+				},
+				discordgo.Button{
+					Label: "Beitrittsformular",
+					Style: discordgo.LinkButton,
+					URL:   joinURL,
 				},
 			},
-		},
-		discordgo.TextDisplay{
-			Content: "-# Optional: verknüpfe GitHub und Discord über Connect.",
 		},
 	)
 
