@@ -8,12 +8,14 @@ import (
 )
 
 const (
+	CommandName          = "ticket"
+	SubcommandClose      = "close"
 	CustomIDClose        = "ticket_close"
 	CustomIDCloseConfirm = "ticket_close_confirm"
 	CustomIDCloseCancel  = "ticket_close_cancel"
 )
 
-// HandleInteraction routes ticket button interactions.
+// HandleInteraction routes ticket slash commands and button interactions.
 func (s *Service) HandleInteraction(sess *discordgo.Session, event *discordgo.InteractionCreate) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -26,10 +28,45 @@ func (s *Service) HandleInteraction(sess *discordgo.Session, event *discordgo.In
 		return
 	}
 
-	if event.Type != discordgo.InteractionMessageComponent {
+	switch event.Type {
+	case discordgo.InteractionApplicationCommand:
+		s.handleSlashCommand(sess, event)
+	case discordgo.InteractionMessageComponent:
+		s.handleComponent(sess, event)
+	}
+}
+
+func (s *Service) handleSlashCommand(sess *discordgo.Session, event *discordgo.InteractionCreate) {
+	data := event.ApplicationCommandData()
+	if data.Name != CommandName {
 		return
 	}
 
+	guildID := event.GuildID
+	if guildID == "" && event.ChannelID != "" {
+		if ch, err := sess.Channel(event.ChannelID); err == nil {
+			guildID = ch.GuildID
+		}
+	}
+	if guildID != "" && guildID != s.cfg.GuildID {
+		log.Printf("ticket: ignore slash guild=%s want=%s", guildID, s.cfg.GuildID)
+		return
+	}
+
+	if len(data.Options) == 0 {
+		_ = respondEphemeral(sess, event, "Unbekannte Ticket-Aktion.")
+		return
+	}
+
+	switch data.Options[0].Name {
+	case SubcommandClose:
+		s.handleCloseSlash(sess, event)
+	default:
+		_ = respondEphemeral(sess, event, "Unbekannte Ticket-Aktion.")
+	}
+}
+
+func (s *Service) handleComponent(sess *discordgo.Session, event *discordgo.InteractionCreate) {
 	customID := ""
 	if data, ok := event.Data.(discordgo.MessageComponentInteractionData); ok {
 		customID = data.CustomID
@@ -58,6 +95,7 @@ func (s *Service) HandleInteraction(sess *discordgo.Session, event *discordgo.In
 
 	switch customID {
 	case CustomIDClose:
+		// Kept for older welcome messages that still have the button.
 		s.handleCloseRequest(sess, event)
 	case CustomIDCloseConfirm:
 		s.handleCloseConfirm(sess, event)
@@ -69,6 +107,28 @@ func (s *Service) HandleInteraction(sess *discordgo.Session, event *discordgo.In
 	}
 }
 
+func (s *Service) handleCloseSlash(sess *discordgo.Session, event *discordgo.InteractionCreate) {
+	if !s.isStaff(event) {
+		if err := respondEphemeral(sess, event, "Nur Vorstand und Management können Tickets schließen."); err != nil {
+			log.Printf("ticket: deny close slash: %v", err)
+		}
+		return
+	}
+
+	ok, err := s.isTicketChannel(sess, event.ChannelID)
+	if err != nil {
+		log.Printf("ticket: check channel %s: %v", event.ChannelID, err)
+		_ = respondEphemeral(sess, event, "Kanal konnte nicht geprüft werden.")
+		return
+	}
+	if !ok {
+		_ = respondEphemeral(sess, event, "Dieser Befehl funktioniert nur in einem Onboarding-Ticket.")
+		return
+	}
+
+	s.promptCloseConfirm(sess, event)
+}
+
 func (s *Service) handleCloseRequest(sess *discordgo.Session, event *discordgo.InteractionCreate) {
 	if !s.isStaff(event) {
 		if err := respondEphemeral(sess, event, "Nur Vorstand und Management können Tickets schließen."); err != nil {
@@ -77,6 +137,10 @@ func (s *Service) handleCloseRequest(sess *discordgo.Session, event *discordgo.I
 		return
 	}
 
+	s.promptCloseConfirm(sess, event)
+}
+
+func (s *Service) promptCloseConfirm(sess *discordgo.Session, event *discordgo.InteractionCreate) {
 	// ACK immediately (Discord requires a response within 3s), then attach confirm buttons.
 	err := sess.InteractionRespond(event.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
@@ -158,6 +222,26 @@ func (s *Service) handleCloseCancel(sess *discordgo.Session, event *discordgo.In
 	if err != nil {
 		log.Printf("ticket: close cancel: %v", err)
 	}
+}
+
+func (s *Service) isTicketChannel(sess *discordgo.Session, channelID string) (bool, error) {
+	ch, err := sess.Channel(channelID)
+	if err != nil {
+		return false, err
+	}
+	if ch.GuildID != s.cfg.GuildID {
+		return false, nil
+	}
+	if ch.Type != discordgo.ChannelTypeGuildText {
+		return false, nil
+	}
+	if ch.ParentID != s.cfg.OnboardingCategoryID {
+		return false, nil
+	}
+	if strings.HasPrefix(ch.Topic, topicPrefix) {
+		return true, nil
+	}
+	return strings.HasPrefix(ch.Name, "ticket-"), nil
 }
 
 func (s *Service) isStaff(event *discordgo.InteractionCreate) bool {

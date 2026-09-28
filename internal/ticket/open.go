@@ -1,20 +1,18 @@
 package ticket
 
 import (
-	"crypto/rand"
 	"fmt"
 	"log"
-	"math/big"
+	"regexp"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/neuland-ingolstadt/discord-bot/internal/config"
 )
 
-const (
-	welcomeMessage = "Vielen Dank für dein Interesse an unserem Verein. Ein Vereinsmitglied wird sich in Kürze hier bei dir melden"
-	topicPrefix    = "ticket-user:"
-)
+const topicPrefix = "ticket-user:"
+
+var nonChannelChars = regexp.MustCompile(`[^a-z0-9-]+`)
 
 // Service handles onboarding ticket lifecycle.
 type Service struct {
@@ -44,7 +42,8 @@ func (s *Service) HandleMemberUpdate(sess *discordgo.Session, event *discordgo.G
 		return
 	}
 
-	userID := event.Member.User.ID
+	user := event.Member.User
+	userID := user.ID
 	exists, err := s.ticketExistsForUser(sess, userID)
 	if err != nil {
 		log.Printf("ticket: check existing for %s: %v", userID, err)
@@ -55,26 +54,13 @@ func (s *Service) HandleMemberUpdate(sess *discordgo.Session, event *discordgo.G
 		return
 	}
 
-	channel, err := s.createTicketChannel(sess, userID)
+	channel, err := s.createTicketChannel(sess, user)
 	if err != nil {
 		log.Printf("ticket: create for %s: %v", userID, err)
 		return
 	}
 
-	_, err = sess.ChannelMessageSendComplex(channel.ID, &discordgo.MessageSend{
-		Content: welcomeMessage,
-		Components: []discordgo.MessageComponent{
-			discordgo.ActionsRow{
-				Components: []discordgo.MessageComponent{
-					discordgo.Button{
-						Label:    "Ticket schließen",
-						Style:    discordgo.DangerButton,
-						CustomID: CustomIDClose,
-					},
-				},
-			},
-		},
-	})
+	_, err = sess.ChannelMessageSend(channel.ID, welcomeMessage(user.Username))
 	if err != nil {
 		log.Printf("ticket: welcome message in %s: %v", channel.ID, err)
 		return
@@ -83,19 +69,14 @@ func (s *Service) HandleMemberUpdate(sess *discordgo.Session, event *discordgo.G
 	log.Printf("ticket: opened %s for user %s", channel.Name, userID)
 }
 
-func (s *Service) createTicketChannel(sess *discordgo.Session, userID string) (*discordgo.Channel, error) {
-	suffix, err := randomSuffix(4)
-	if err != nil {
-		return nil, err
-	}
-
+func (s *Service) createTicketChannel(sess *discordgo.Session, user *discordgo.User) (*discordgo.Channel, error) {
 	viewSendHistory := int64(discordgo.PermissionViewChannel | discordgo.PermissionSendMessages | discordgo.PermissionReadMessageHistory)
 
 	return sess.GuildChannelCreateComplex(s.cfg.GuildID, discordgo.GuildChannelCreateData{
-		Name:     "ticket-" + suffix,
+		Name:     ticketChannelName(user.Username),
 		Type:     discordgo.ChannelTypeGuildText,
 		ParentID: s.cfg.OnboardingCategoryID,
-		Topic:    topicPrefix + userID,
+		Topic:    topicPrefix + user.ID,
 		PermissionOverwrites: []*discordgo.PermissionOverwrite{
 			{
 				ID:   s.cfg.GuildID, // @everyone
@@ -103,7 +84,7 @@ func (s *Service) createTicketChannel(sess *discordgo.Session, userID string) (*
 				Deny: discordgo.PermissionViewChannel,
 			},
 			{
-				ID:    userID,
+				ID:    user.ID,
 				Type:  discordgo.PermissionOverwriteTypeMember,
 				Allow: viewSendHistory,
 			},
@@ -119,6 +100,28 @@ func (s *Service) createTicketChannel(sess *discordgo.Session, userID string) (*
 			},
 		},
 	})
+}
+
+func welcomeMessage(username string) string {
+	return fmt.Sprintf(
+		"Hey %s 👋\nDanke für dein Interesse an unserem Verein! Ein Vereinsmitglied meldet sich in Kürze persönlich bei dir hier im Chat. Dabei geht es darum, dich und deine Interessen kennenzulernen und gemeinsam zu schauen, wie du dich bei uns einbringen kannst.\nUnd natürlich kannst du die Gelegenheit auch nutzen, um alle Fragen loszuwerden, die du an uns hast!",
+		username,
+	)
+}
+
+func ticketChannelName(username string) string {
+	name := strings.ToLower(username)
+	name = strings.ReplaceAll(name, "_", "-")
+	name = nonChannelChars.ReplaceAllString(name, "")
+	name = strings.Trim(name, "-")
+	if name == "" {
+		name = "user"
+	}
+	const maxLen = 100 - len("ticket-")
+	if len(name) > maxLen {
+		name = name[:maxLen]
+	}
+	return "ticket-" + name
 }
 
 func (s *Service) ticketExistsForUser(sess *discordgo.Session, userID string) (bool, error) {
@@ -156,20 +159,4 @@ func hasRole(roles []string, roleID string) bool {
 		}
 	}
 	return false
-}
-
-const suffixAlphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
-
-func randomSuffix(n int) (string, error) {
-	var b strings.Builder
-	b.Grow(n)
-	max := big.NewInt(int64(len(suffixAlphabet)))
-	for i := 0; i < n; i++ {
-		idx, err := rand.Int(rand.Reader, max)
-		if err != nil {
-			return "", fmt.Errorf("random suffix: %w", err)
-		}
-		b.WriteByte(suffixAlphabet[idx.Int64()])
-	}
-	return b.String(), nil
 }

@@ -9,6 +9,7 @@ import (
 const (
 	rolesCommandName   = "roles"
 	connectCommandName = "connect"
+	ticketCommandName  = "ticket"
 )
 
 // Service handles slash command registration and responses.
@@ -36,6 +37,17 @@ func (s *Service) definitions() []*discordgo.ApplicationCommand {
 		{
 			Name:        connectCommandName,
 			Description: "Öffnet Neuland Connect (Konten) zum Verknüpfen von GitHub und Discord",
+		},
+		{
+			Name:        ticketCommandName,
+			Description: "Onboarding-Ticket verwalten",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Name:        "close",
+					Description: "Dieses Ticket schließen (nur Vorstand/Management)",
+				},
+			},
 		},
 	}
 }
