@@ -17,7 +17,7 @@ Example: `ghcr.io/neuland-ingolstadt/discord-bot:main-42`
 
 - Creates `welcome-<username>` under the **Onboarding** category
 - Private to the member (`@everyone` denied); staff see tickets via category permissions
-- Posts a welcome message mentioning the member
+- Posts a Components V2 welcome panel (greeting, next steps, Connect link)
 - Staff-only `/ticket close` with ephemeral confirm/cancel; confirm deletes the channel
 - Slash command `/roles` — lists all server roles as `` `Name` — `ID` `` (Vorstand/Management only)
 - Slash command `/connect` — ephemeral link to Neuland Connect account linking

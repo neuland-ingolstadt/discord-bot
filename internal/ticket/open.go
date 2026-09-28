@@ -60,8 +60,7 @@ func (s *Service) HandleMemberUpdate(sess *discordgo.Session, event *discordgo.G
 		return
 	}
 
-	_, err = sess.ChannelMessageSend(channel.ID, welcomeMessage(user))
-	if err != nil {
+	if _, err := sess.ChannelMessageSendComplex(channel.ID, s.welcomeMessage(sess, user)); err != nil {
 		log.Printf("ticket: welcome message in %s: %v", channel.Name, err)
 		return
 	}
@@ -92,14 +91,94 @@ func (s *Service) createTicketChannel(sess *discordgo.Session, user *discordgo.U
 	return channel, nil
 }
 
-func welcomeMessage(user *discordgo.User) string {
-	return fmt.Sprintf(
-		"Hey <@%s> 👋\n\n"+
-			"Danke für dein Interesse an unserem Verein!\n\n"+
-			"Ein Vereinsmitglied meldet sich in Kürze persönlich bei dir hier im Chat. Dabei geht es darum, dich und deine Interessen kennenzulernen und gemeinsam zu schauen, wie du dich bei uns einbringen kannst.\n\n"+
-			"Und natürlich kannst du die Gelegenheit auch nutzen, um alle Fragen loszuwerden, die du an uns hast!",
-		user.ID,
+// Neuland accent (approx. brand orange).
+const welcomeAccentColor = 0xED6D2D
+
+func (s *Service) welcomeMessage(sess *discordgo.Session, user *discordgo.User) *discordgo.MessageSend {
+	divider := true
+	spacing := discordgo.SeparatorSpacingSizeLarge
+	accent := welcomeAccentColor
+
+	var body []discordgo.MessageComponent
+	if icon := guildIconURL(sess, s.cfg.GuildID); icon != "" {
+		desc := "Neuland"
+		body = append(body, discordgo.Section{
+			Components: []discordgo.MessageComponent{
+				discordgo.TextDisplay{
+					Content: fmt.Sprintf("## Hey <@%s>", user.ID),
+				},
+				discordgo.TextDisplay{
+					Content: "Danke für dein Interesse an unserem Verein!",
+				},
+			},
+			Accessory: discordgo.Thumbnail{
+				Media:       discordgo.UnfurledMediaItem{URL: icon},
+				Description: &desc,
+			},
+		})
+	} else {
+		body = append(body,
+			discordgo.TextDisplay{
+				Content: fmt.Sprintf("## Hey <@%s>", user.ID),
+			},
+			discordgo.TextDisplay{
+				Content: "Danke für dein Interesse an unserem Verein!",
+			},
+		)
+	}
+
+	body = append(body,
+		discordgo.Separator{
+			Divider: &divider,
+			Spacing: &spacing,
+		},
+		discordgo.TextDisplay{
+			Content: "### Was passiert als Nächstes?\n" +
+				"1. Ein Vereinsmitglied meldet sich hier bei dir.\n" +
+				"2. Ihr lernt euch und deine Interessen kennen und schaut, wie du dich einbringen kannst.\n" +
+				"3. Stell gerne alle Fragen, die du an uns hast.",
+		},
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.Button{
+					Label: "Neuland Connect",
+					Style: discordgo.LinkButton,
+					URL:   s.cfg.ConnectURL,
+				},
+			},
+		},
+		discordgo.TextDisplay{
+			Content: "-# Optional: verknüpfe GitHub und Discord über Connect.",
+		},
 	)
+
+	return &discordgo.MessageSend{
+		Flags: discordgo.MessageFlagsIsComponentsV2,
+		AllowedMentions: &discordgo.MessageAllowedMentions{
+			Users: []string{user.ID},
+		},
+		Components: []discordgo.MessageComponent{
+			discordgo.Container{
+				AccentColor: &accent,
+				Components:  body,
+			},
+		},
+	}
+}
+
+func guildIconURL(sess *discordgo.Session, guildID string) string {
+	guild, err := sess.State.Guild(guildID)
+	if err != nil || guild == nil || guild.Icon == "" {
+		guild, err = sess.Guild(guildID)
+		if err != nil || guild == nil || guild.Icon == "" {
+			return ""
+		}
+	}
+	ext := "png"
+	if strings.HasPrefix(guild.Icon, "a_") {
+		ext = "gif"
+	}
+	return fmt.Sprintf("https://cdn.discordapp.com/icons/%s/%s.%s?size=256", guild.ID, guild.Icon, ext)
 }
 
 func ticketChannelName(username string) string {
