@@ -205,9 +205,17 @@ func ticketChannelName(username string) string {
 }
 
 func (s *Service) ticketExistsForUser(sess *discordgo.Session, userID string) (bool, error) {
-	channels, err := sess.GuildChannels(s.cfg.GuildID)
+	ch, err := s.findTicketChannelForUser(sess, userID)
 	if err != nil {
 		return false, err
+	}
+	return ch != nil, nil
+}
+
+func (s *Service) findTicketChannelForUser(sess *discordgo.Session, userID string) (*discordgo.Channel, error) {
+	channels, err := sess.GuildChannels(s.cfg.GuildID)
+	if err != nil {
+		return nil, err
 	}
 
 	wantTopic := topicPrefix + userID
@@ -219,17 +227,17 @@ func (s *Service) ticketExistsForUser(sess *discordgo.Session, userID string) (b
 			continue
 		}
 		if ch.Topic == wantTopic {
-			return true, nil
+			return ch, nil
 		}
 		if strings.HasPrefix(ch.Name, "welcome-") || strings.HasPrefix(ch.Name, "ticket-") {
 			for _, ow := range ch.PermissionOverwrites {
 				if ow.Type == discordgo.PermissionOverwriteTypeMember && ow.ID == userID {
-					return true, nil
+					return ch, nil
 				}
 			}
 		}
 	}
-	return false, nil
+	return nil, nil
 }
 
 func hasRole(roles []string, roleID string) bool {

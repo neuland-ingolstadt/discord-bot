@@ -35,6 +35,7 @@ func main() {
 	tickets := ticket.New(cfg)
 	cmds := commands.New(cfg.ConnectURL, cfg.VorstandRoleID, cfg.ManagementRoleID)
 	session.AddHandler(tickets.HandleMemberUpdate)
+	session.AddHandler(tickets.HandleMemberRemove)
 	session.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		cmds.HandleInteraction(s, i)
 		tickets.HandleInteraction(s, i)
