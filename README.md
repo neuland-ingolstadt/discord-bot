@@ -15,10 +15,10 @@ Example: `ghcr.io/neuland-ingolstadt/discord-bot:main-42`
 
 ## Features
 
-- Creates `ticket-XXXX` under the **Onboarding** category
+- Creates `welcome-<username>` under the **Onboarding** category
 - Visible/writable only by the member plus Vorstand and Management
-- Posts a welcome message with a **Ticket schließen** button
-- Staff-only close flow with ephemeral confirm/cancel; confirm deletes the channel
+- Posts a welcome message mentioning the member
+- Staff-only `/ticket close` with ephemeral confirm/cancel; confirm deletes the channel
 - Slash command `/roles` — lists all server roles as `` `Name` — `ID` `` (Vorstand/Management only)
 - Slash command `/connect` — ephemeral link to Neuland Connect account linking
 
@@ -85,4 +85,4 @@ make docker-build
 
 1. Staff assigns the Interessent role to a member.
 2. Bot creates a private channel and posts the welcome message.
-3. Staff clicks **Ticket schließen** → ephemeral confirmation → **Bestätigen** deletes the channel.
+3. Staff runs `/ticket close` → ephemeral confirmation → **Bestätigen** deletes the channel.

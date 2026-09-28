@@ -120,11 +120,12 @@ func ticketChannelName(username string) string {
 	if name == "" {
 		name = "user"
 	}
-	const maxLen = 100 - len("ticket-")
+	const prefix = "welcome-"
+	const maxLen = 100 - len(prefix)
 	if len(name) > maxLen {
 		name = name[:maxLen]
 	}
-	return "ticket-" + name
+	return prefix + name
 }
 
 func (s *Service) ticketExistsForUser(sess *discordgo.Session, userID string) (bool, error) {
@@ -144,7 +145,7 @@ func (s *Service) ticketExistsForUser(sess *discordgo.Session, userID string) (b
 		if ch.Topic == wantTopic {
 			return true, nil
 		}
-		if strings.HasPrefix(ch.Name, "ticket-") {
+		if strings.HasPrefix(ch.Name, "welcome-") || strings.HasPrefix(ch.Name, "ticket-") {
 			for _, ow := range ch.PermissionOverwrites {
 				if ow.Type == discordgo.PermissionOverwriteTypeMember && ow.ID == userID {
 					return true, nil

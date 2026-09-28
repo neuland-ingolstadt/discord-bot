@@ -241,7 +241,7 @@ func (s *Service) isTicketChannel(sess *discordgo.Session, channelID string) (bo
 	if strings.HasPrefix(ch.Topic, topicPrefix) {
 		return true, nil
 	}
-	return strings.HasPrefix(ch.Name, "ticket-"), nil
+	return strings.HasPrefix(ch.Name, "welcome-") || strings.HasPrefix(ch.Name, "ticket-"), nil
 }
 
 func (s *Service) isStaff(event *discordgo.InteractionCreate) bool {
